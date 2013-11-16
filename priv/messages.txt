@@ -1,0 +1,67 @@
+1. user -> target
+ - action: login
+ - user name
+ - no signature - original request on the web
+
+ : session handling is outside of scope
+
+2. target -> sts
+ - target ID
+   - used to verify the target, whether target is allowed to perform these actions
+ - user ID
+   - user to identify the authenticator
+ - signed by target's signature
+   - this ensures that no one else can issue such a request on behalf of the target
+   - request cannot be modified
+   - does not provide confidentiality (HTTPS)
+ - reason (displayed to the user)
+ - request ID (for uniqueness and for async replies, for audit purposes)
+ q: replay protection (timestamp, sequence number)?
+
+scenarios:
+ - rogue sts intercepts request, replies with "yes"
+   - not possible due to STS signature and matched request ID
+ - rogue target sends a request for non-user request
+   - not possible, must be registered
+
+STS verifies target's signature, user's ID, finds the authenticator and sends a request to it
+
+3. sts -> authenticator
+ - target's request ID (for correlation)
+ - user ID (for verification and login)
+ - reason (for display)
+ - STS ID (for multi-app)
+ - signed by sts's signature
+
+scenarios:
+ - rogue sts sends non-existent request
+   - requires STS signature
+
+authenticator:
+ - verifies the STS signature
+ - verifies the user with requested ID is logged in (logs in if necessary)
+ - confirms action for the reason with the user
+
+4. authenticator -> sts:
+ - request ID
+ - decision (yes/no)
+ - authenticator's signature
+
+q: should it contain the whole original request?
+
+STS:
+ - fetches request from request ID
+ - verifies the request is still valid
+ - identifies the authenticator from the request
+ - verifies the authenticator's signature
+
+5. sts -> target
+  - request ID
+  - decision
+  - sts signature
+
+target:
+ - verifies the sts signature
+ - fetches request
+ - verifies the request is still valid
+ - acts on the decision
