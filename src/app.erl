@@ -9,7 +9,7 @@
 -module(app).
 
 %% API
--export([start_app/0]).
+-export([start_app/0, test_app/0]).
 
 start_app() ->
   code:ensure_loaded(auth_security),
@@ -17,8 +17,17 @@ start_app() ->
   code:ensure_loaded(target),
   code:ensure_loaded(sts),
   code:ensure_loaded(authenticator),
-  gen_server:start_link({local, target_server}, target, [],[]),
+  gen_server:start_link({local, target_server}, target, {targetID, targetPrivateKey},[]),
   gen_server:start_link({local, user_server}, user_server, [],[]),
-  gen_server:start_link({local, sts_server}, sts, [],[]),
-  gen_server:start_link({local, authenticator_server}, authenticator, {"Y"},[]).
+  gen_server:start_link({local, sts_server}, sts, {"STS", stsPrivateKey},[]),
+  gen_server:start_link({local, authenticator_server}, authenticator, {authPrivateKey, stsPublicKey, "N"},[]).
+
+test_app() ->
+  {ok, TargetID} = gen_server:call(sts_server, {registerTarget, "Mail", targetPrivateKey}),
+  gen_server:call(target_server, {newTargetID, TargetID}),
+  gen_server:call(sts_server, {registerUser, "Denis", "denismo@yahoo.com", authenticator_server, authPublicKey}),
+  gen_server:call(authenticator_server, {loginUser, "Denis"}),
+  gen_server:call(user_server,{start,target_server,"Denis"}).
+
+
 

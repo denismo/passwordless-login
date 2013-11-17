@@ -10,7 +10,11 @@
 -behavior(gen_server).
 -export([init/1, handle_info/2, handle_call/3, terminate/2, handle_cast/2, code_change/3]).
 
-init(_Args) -> {ok, _Args}.
+-include("records.erl").
+
+-record(authenticatorRec, {loggedInUser, privateKey, stsPublicKey, dummyInput}).
+
+init({PrivateKey, StsPublicKey, DummyInput}) -> {ok, #authenticatorRec{privateKey = PrivateKey, stsPublicKey = StsPublicKey, dummyInput = DummyInput}}.
 
 handle_info(Msg, State) ->
   io:format("Unexpected message: ~p~n",[Msg]),
@@ -29,27 +33,38 @@ code_change(_OldVsn, State, _Extra) ->
 handle_call(terminate, _From, State) ->
   {stop, normal, ok, State};
 
+% TODO Implement validation
+handle_call({loginUser, Username}, _From, State) ->
+  NewState = State#authenticatorRec{loggedInUser = Username},
+  {reply, ok, NewState};
 
-handle_call({confirm,Claims}, _From, State) ->
-  io:format("Authenticator: confirming claims ~p~n", [Claims]),
+handle_call({confirm, Msg}, _From, State) ->
+  io:format("Authenticator: confirming ~p~n", [Msg]),
   try
-    auth_security:verify_signature(Claims,sts_token(State)),
-    Username = auth_security:extract_claim(Claims,user),
-    Username = logged_in_user(State),
-    Target = auth_security:extract_claim(Claims,target),
-    io:format("Authorize user ~p access to ~p?",[Username,Target]),
-    Input = element(1, State),
-    if Input == "y" orelse Input == "Y" -> {reply, auth_security:sign([{confirmed,Claims}]), State};
-       true -> throw(denied)
+    auth_security:verify_signature(utils:signedRecord2list(Msg), element(tuple_size(Msg), Msg), get_sts_public_key(State)),
+    Username = Msg#sts2authenticator.userName,
+    Username = logged_in_user(State), % Fails if not the same
+    Target = Msg#sts2authenticator.targetName,
+    Reason = Msg#sts2authenticator.reason,
+    io:format("Authorize user ~p access to ~p for ~p~n", [Username, Target, Reason]),
+    Input = State#authenticatorRec.dummyInput,
+    if Input == "y" orelse Input == "Y" ->
+        Reply = #authenticator2sts{decision = confirmed, requestID = Msg#sts2authenticator.requestID},
+        SignedReply = Reply#authenticator2sts{authenticatorSignature = auth_security:signature(Reply, get_private_key(State))},
+        {reply, SignedReply, State};
+      true -> throw(denied)
     end
   catch _ ->
-    io:format("Authenticator: Denied access for claims ~p~n", [Claims]),
-    {reply, auth_security:sign([{denied,Claims}]), State}
+    io:format("Authenticator: Denied access ~p~n", [Msg]),
+    Reply2 = #authenticator2sts{decision = denied, requestID = Msg#sts2authenticator.requestID},
+    SignedReply2 = Reply2#authenticator2sts{authenticatorSignature = auth_security:signature(Reply2, get_private_key(State))},
+    {reply, SignedReply2, State}
   end;
 
 handle_call(Msg, _From, State) ->
   io:format("Unexpected message: ~p~n",[Msg]),
   {reply, false, State}.
 
-logged_in_user(_State) -> "Denis".
-sts_token(_State) -> valid_sts_token.
+logged_in_user(State)     -> State#authenticatorRec.loggedInUser.
+get_private_key(State)    -> State#authenticatorRec.privateKey.
+get_sts_public_key(State) -> State#authenticatorRec.stsPublicKey.

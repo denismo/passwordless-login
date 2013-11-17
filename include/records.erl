@@ -9,3 +9,6 @@
 
 %% API
 -record(target2sts,{targetID,userName, reason, requestID, targetsSignature}).
+-record(sts2authenticator, {targetName, requestID, userName, reason, stsID, stsSignature}).
+-record(authenticator2sts, {requestID, decision, authenticatorSignature}).
+

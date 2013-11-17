@@ -11,7 +11,10 @@
 -export([init/1, handle_info/2, handle_call/3, terminate/2, handle_cast/2,code_change/3]).
 -include("records.erl").
 
-init(_Args) -> {ok,[]}.
+-record(targetState, {targetID,privateCert}).
+
+init({TargetID, Certificate}) ->
+  {ok,#targetState{privateCert = Certificate, targetID = TargetID}}.
 
 handle_info(Msg, State) ->
   io:format("Unexpected message: ~p~n",[Msg]),
@@ -30,14 +33,21 @@ handle_call(terminate, _From, State) ->
   {stop, normal, ok, State};
 handle_call({login,Username}, _From, State) ->
   io:format("User ~p is loging in~n", [Username]),
-  Reply = gen_server:call(sts_server, {verify,auth_security:sign([{claim,user,Username},{claim,target,get_token(State)}])}),
+  Msg = #target2sts{reason = "User login",
+                    requestID = uuid:to_string(uuid:v4()),
+                    targetID = State#targetState.targetID,
+                    userName = Username},
+  Signature = auth_security:signature(Msg, State#targetState.privateCert),
+  SignedMsg = Msg#target2sts{targetsSignature = Signature},
+  Reply = gen_server:call(sts_server, {verify, SignedMsg}),
+  % TODO Verify STS signature
   {reply, Reply, State};
+
+handle_call({newTargetID, TargetID}, _From, State) ->
+  NewState = State#targetState{targetID = TargetID},
+  {reply,ok,NewState};
+
 handle_call(Msg, _From, State) ->
   io:format("Unexpected message: ~p~n",[Msg]),
   {reply, false, State}.
-
-
-get_token(_State) ->
-  % TODO Extract token from state (should be retrieved from STS), also should contain the certificate for signing
-  {valid_token, self()}.
 
