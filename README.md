@@ -36,6 +36,10 @@ User -> Target -> Trust server -> Authenticator
    The reply is communicated back to the trust server, and then to the target
 6. The user is granted or denied access to the target
 
+Running the test
+================
+Execute "app:test_app()" from Erlang shell.
+
 License
 =======
 GPL v3
