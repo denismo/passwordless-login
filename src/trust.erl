@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 13. Nov 2013 11:50 PM
 %%%-------------------------------------------------------------------
--module(sts).
+-module(trust).
 -behavior(gen_server).
 -export([init/1, handle_info/2, handle_call/3, terminate/2, handle_cast/2, code_change/3]).
 -include("records.erl").
@@ -62,10 +62,10 @@ handle_call({verify, SignedMsg}, _From, State) ->
     TargetName = get_target_name(State, SignedMsg#target2sts.targetID),
     confirm_user(State, SignedMsg#target2sts.requestID, SignedMsg#target2sts.userName, TargetName, SignedMsg#target2sts.reason),
     io:format("STS: Verified: ~p~n",[SignedMsg]),
-    {reply, auth_security:sign([confirmed]), State}
+    {reply, auth_security:sign([confirmed], State#stsState.certificate), State}
   catch _ ->
     io:format("STS: Denied: ~p~n",[SignedMsg]),
-    {reply, auth_security:sign([denied]), State}
+    {reply, auth_security:sign([denied], State#stsState.certificate), State}
   end;
 
 handle_call(Msg, _From, State) ->
@@ -78,7 +78,7 @@ new_target(State, TargetRec) ->
 verify_target_signature(State, TargetID, SignedMsg) ->
   TargetCertificate = lookup_target_certificate(State, TargetID),
   % Last element is signature
-  auth_security:verify_signature(utils:signedRecord2list(SignedMsg), element(tuple_size(SignedMsg), SignedMsg), TargetCertificate).
+  auth_security:verify_signature(SignedMsg, TargetCertificate).
 
 lookup_target_certificate(State, TargetID) ->
   Target = lookup_target(State, TargetID),
@@ -91,7 +91,7 @@ get_target_name(State, TargetID) ->
 confirm_user(State, RequestID, Username, TargetName, Reason) ->
   Authenticator = user_authenticator(State, Username),
   Msg = #sts2authenticator{reason = Reason, requestID = RequestID, stsID = State#stsState.id, targetName = TargetName, userName = Username},
-  SignedMsg = Msg#sts2authenticator{stsSignature = auth_security:signature(Msg, State#stsState.certificate)},
+  SignedMsg = auth_security:sign(Msg, State#stsState.certificate),
   Reply = gen_server:call(Authenticator#authenticatorRec.remote, {confirm, SignedMsg}),
   verify_authenticator_signature(State, Reply, Authenticator),
   case {Reply#authenticator2sts.requestID, Reply#authenticator2sts.decision} of
@@ -100,7 +100,7 @@ confirm_user(State, RequestID, Username, TargetName, Reason) ->
   end.
 
 verify_authenticator_signature(_State, Msg, Authenticator) ->
-  auth_security:verify_signature(Msg, Msg#authenticator2sts.authenticatorSignature, Authenticator#authenticatorRec.certificate).
+  auth_security:verify_signature(Msg, Authenticator#authenticatorRec.certificate).
 
 user_authenticator(State, Username) ->
   User = lookup_user(State, Username),

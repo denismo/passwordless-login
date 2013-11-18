@@ -11,10 +11,10 @@
 -export([init/1, handle_info/2, handle_call/3, terminate/2, handle_cast/2,code_change/3]).
 -include("records.erl").
 
--record(targetState, {targetID,privateCert}).
+-record(targetState, {targetID,privateCert,stsPublicKey}).
 
-init({TargetID, Certificate}) ->
-  {ok,#targetState{privateCert = Certificate, targetID = TargetID}}.
+init({TargetID, Certificate, StsPublicKey}) ->
+  {ok,#targetState{privateCert = Certificate, targetID = TargetID, stsPublicKey = StsPublicKey}}.
 
 handle_info(Msg, State) ->
   io:format("Unexpected message: ~p~n",[Msg]),
@@ -37,11 +37,10 @@ handle_call({login,Username}, _From, State) ->
                     requestID = uuid:to_string(uuid:v4()),
                     targetID = State#targetState.targetID,
                     userName = Username},
-  Signature = auth_security:signature(Msg, State#targetState.privateCert),
-  SignedMsg = Msg#target2sts{targetsSignature = Signature},
+  SignedMsg = auth_security:sign(Msg, State#targetState.privateCert),
   % TODO Perhaps enable confirmation code ala bank SMS?
   Reply = gen_server:call(sts_server, {verify, SignedMsg}),
-  % TODO Verify STS signature
+  auth_security:verify_signature(Reply, State#targetState.stsPublicKey),
   {reply, Reply, State};
 
 handle_call({newTargetID, TargetID}, _From, State) ->

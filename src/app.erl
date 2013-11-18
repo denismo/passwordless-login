@@ -7,6 +7,7 @@
 %%% Created : 13. Nov 2013 11:34 PM
 %%%-------------------------------------------------------------------
 -module(app).
+-vsn(1.1).
 
 %% API
 -export([start_app/1, test_app/1]).
@@ -15,11 +16,11 @@ start_app(DummyInput) ->
   code:ensure_loaded(auth_security),
   code:ensure_loaded(user_server),
   code:ensure_loaded(target),
-  code:ensure_loaded(sts),
+  code:ensure_loaded(trust),
   code:ensure_loaded(authenticator),
-  gen_server:start_link({local, target_server}, target, {targetID, targetPrivateKey},[]),
+  gen_server:start_link({local, target_server}, target, {targetID, targetPrivateKey, stsPublicKey},[]),
   gen_server:start_link({local, user_server}, user_server, [],[]),
-  gen_server:start_link({local, sts_server}, sts, {"STS", stsPrivateKey},[]),
+  gen_server:start_link({local, sts_server}, trust, {"STS", stsPrivateKey},[]),
   gen_server:start_link({local, authenticator_server}, authenticator, {authPrivateKey, stsPublicKey, DummyInput},[]).
 
 test_app(DummyInput) ->

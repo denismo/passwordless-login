@@ -41,7 +41,7 @@ handle_call({loginUser, Username}, _From, State) ->
 handle_call({confirm, Msg}, _From, State) ->
   io:format("Authenticator: confirming ~p~n", [Msg]),
   try
-    auth_security:verify_signature(utils:signedRecord2list(Msg), element(tuple_size(Msg), Msg), get_sts_public_key(State)),
+    auth_security:verify_signature(Msg, get_sts_public_key(State)),
     Username = Msg#sts2authenticator.userName,
     Username = logged_in_user(State), % Fails if not the same
     Target = Msg#sts2authenticator.targetName,
@@ -50,14 +50,14 @@ handle_call({confirm, Msg}, _From, State) ->
     Input = State#authenticatorRec.dummyInput,
     if Input == "y" orelse Input == "Y" ->
         Reply = #authenticator2sts{decision = confirmed, requestID = Msg#sts2authenticator.requestID},
-        SignedReply = Reply#authenticator2sts{authenticatorSignature = auth_security:signature(Reply, get_private_key(State))},
+        SignedReply = auth_security:sign(Reply, get_private_key(State)),
         {reply, SignedReply, State};
       true -> throw(denied)
     end
   catch _ ->
     io:format("Authenticator: Denied access ~p~n", [Msg]),
     Reply2 = #authenticator2sts{decision = denied, requestID = Msg#sts2authenticator.requestID},
-    SignedReply2 = Reply2#authenticator2sts{authenticatorSignature = auth_security:signature(Reply2, get_private_key(State))},
+    SignedReply2 = auth_security:sign(Reply2, get_private_key(State)),
     {reply, SignedReply2, State}
   end;
 

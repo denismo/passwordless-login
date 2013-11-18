@@ -9,7 +9,7 @@
 -module(auth_security).
 
 %% API
--export([extract_claim/2, verify_signature/2, verify_signature/3, sign/1, signature/2]).
+-export([extract_claim/2, verify_signature/2, sign/2]).
 
 extract_claim([Claim|T],Name) ->
   case Claim of
@@ -18,17 +18,23 @@ extract_claim([Claim|T],Name) ->
   end;
 extract_claim([],_Name) -> invalid.
 
+%% Msg can be either a record or a list.
+%% The last element in tuple may or may not contain the signature value (may be empty). If it contains signature it should be ignored
+%% The last element of a list is signature
+%% Throws exception if signature is invalid
+verify_signature(Msg, Certificate) when is_tuple(Msg) ->
+  verify_signature(utils:signedRecord2list(Msg), Certificate);
+verify_signature(Msg, Certificate) when is_list(Msg) ->
+  Signature = lists:last(Msg),
+  Body = lists:sublist(Msg, length(Msg)-1),
+  verify_signature(Body, Signature, Certificate).
+verify_signature(_Body, Signature, _Certificate) -> % Throws
+  % TODO Implement actual signature validation
+  Signature = {signature, valid}.
 
-verify_signature(_Claims,_Token) ->
-  true.
 
-sign(Claims) ->
-  % TODO Generate unique signature (At last matching target - using target certificate)
-  Claims ++ [{signature,valid}].
-
-% Msg can be either a record or a list. The last element may or may not contain the signature value. If it contain signature it should be ignored
-verify_signature(Msg, Signature, Certificate) ->
-  ok.
-
-signature(_Msg, _Certificate) ->
-  {signature, valid}.
+sign(Msg, _Certificate) when is_list(Msg) ->
+  % TODO Implement actual signature generation
+  Msg ++ [{signature, valid}];
+sign(Msg, _Certificate) when is_tuple(Msg) ->
+  setelement(tuple_size(Msg), Msg, {signature,valid}).
