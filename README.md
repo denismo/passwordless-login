@@ -35,7 +35,7 @@ Protocol sequence
 -----------------
 The protocol consists of a sequence of messages exchanges by the parties in the following order:
 <pre>User -1> Target -2> Trust server -3> Authenticator
-     <6- Target <5- Trust server <4-
+     &lt;6- Target &lt;5- Trust server &lt;4-
 </pre>
 1. The protocol is initiated by the user who accesses a compliant target.
    The user provides only his user ID (e.g. username, email) - no password is required.
