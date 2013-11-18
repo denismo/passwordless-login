@@ -18,16 +18,16 @@ start_app(DummyInput) ->
   code:ensure_loaded(target),
   code:ensure_loaded(trust),
   code:ensure_loaded(authenticator),
-  gen_server:start_link({local, target_server}, target, {targetID, targetPrivateKey, stsPublicKey},[]),
+  gen_server:start_link({local, target_server}, target, {targetID, {target, privateKey}, {trust, publicKey}},[]),
   gen_server:start_link({local, user_server}, user_server, [],[]),
-  gen_server:start_link({local, sts_server}, trust, {"STS", stsPrivateKey},[]),
-  gen_server:start_link({local, authenticator_server}, authenticator, {authPrivateKey, stsPublicKey, DummyInput},[]).
+  gen_server:start_link({local, trust_server}, trust, {"Trust Server", {trust, privateKey}},[]),
+  gen_server:start_link({local, authenticator_server}, authenticator, {{auth, privateKey}, {trust, publicKey}, DummyInput},[]).
 
 test_app(DummyInput) ->
   start_app(DummyInput),
-  {ok, TargetID} = gen_server:call(sts_server, {registerTarget, "Mail", targetPrivateKey}),
+  {ok, TargetID} = gen_server:call(trust_server, {registerTarget, "Mail", {target, publicKey}}),
   gen_server:call(target_server, {newTargetID, TargetID}),
-  gen_server:call(sts_server, {registerUser, "Denis", "denismo@yahoo.com", authenticator_server, authPublicKey}),
+  gen_server:call(trust_server, {registerUser, "Denis", "denismo@yahoo.com", authenticator_server, {auth, publicKey}}),
   gen_server:call(authenticator_server, {loginUser, "Denis"}),
   gen_server:call(user_server,{start,target_server,"Denis"}).
 

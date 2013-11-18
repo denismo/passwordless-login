@@ -39,7 +39,7 @@ handle_call({login,Username}, _From, State) ->
                     userName = Username},
   SignedMsg = auth_security:sign(Msg, State#targetState.privateCert),
   % TODO Perhaps enable confirmation code ala bank SMS?
-  Reply = gen_server:call(sts_server, {verify, SignedMsg}),
+  Reply = gen_server:call(trust_server, {verify, SignedMsg}),
   auth_security:verify_signature(Reply, State#targetState.stsPublicKey),
   {reply, Reply, State};
 

@@ -28,13 +28,14 @@ verify_signature(Msg, Certificate) when is_list(Msg) ->
   Signature = lists:last(Msg),
   Body = lists:sublist(Msg, length(Msg)-1),
   verify_signature(Body, Signature, Certificate).
-verify_signature(_Body, Signature, _Certificate) -> % Throws
+verify_signature(_Body, Signature, Certificate) -> % Throws
   % TODO Implement actual signature validation
-  Signature = {signature, valid}.
+  {Name, publicKey} = Certificate,
+  Signature = {signature, {Name, privateKey}}.
 
 
-sign(Msg, _Certificate) when is_list(Msg) ->
+sign(Msg, {_Name, privateKey} = Certificate) when is_list(Msg) ->
   % TODO Implement actual signature generation
-  Msg ++ [{signature, valid}];
-sign(Msg, _Certificate) when is_tuple(Msg) ->
-  setelement(tuple_size(Msg), Msg, {signature,valid}).
+  Msg ++ [{signature, Certificate}];
+sign(Msg, {_Name, privateKey} = Certificate) when is_tuple(Msg) ->
+  setelement(tuple_size(Msg), Msg, {signature, Certificate}).
