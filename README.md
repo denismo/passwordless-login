@@ -37,14 +37,14 @@ The protocol consists of a sequence of messages exchanges by the parties in the 
 <pre>User -1> Target -2> Trust server -3> Authenticator
      &lt;6- Target &lt;5- Trust server &lt;4-
 </pre>
-1. The protocol is initiated by the user who accesses a compliant target.
+1. The protocol is initiated by the user who accesses a compliant target via a user's agent (usually a browser).
    The user provides only his user ID (e.g. username, email) - no password is required.
 2. The target requests confirmation from the trust server for access for the specified user.
 3. The trust server communicates this request to the dedicated authenticator (e.g. a mobile app on user's mobile device)
 4. The user receives UI prompt to confirm access with simple Yes/No
-5. If the user chooses Yes within certain timeout the access to the target is the granted.
+5. If the user chooses Yes within certain timeout the access to the target is then granted.
    The reply is communicated back to the trust server, and then to the target
-6. The user is granted or denied access to the target
+6. The user's agent is granted or denied access to the target
 
 Running the test
 ----------------
