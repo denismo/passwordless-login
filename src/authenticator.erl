@@ -46,9 +46,10 @@ handle_call({confirm, Msg}, _From, State) ->
     Username = logged_in_user(State), % Fails if not the same
     Target = Msg#sts2authenticator.targetName,
     Reason = Msg#sts2authenticator.reason,
-    io:format("Authorize user ~p access to ~p for ~p~n", [Username, Target, Reason]),
+    io:format("Authenticator: Authorize user ~p access to ~p for ~p?~p~n", [Username, Target, Reason,State#authenticatorRec.dummyInput]),
     Input = State#authenticatorRec.dummyInput,
     if Input == "y" orelse Input == "Y" ->
+        io:format("Authenticator: Confirmed access ~p~n", [Msg]),
         Reply = #authenticator2sts{decision = confirmed, requestID = Msg#sts2authenticator.requestID},
         SignedReply = auth_security:sign(Reply, get_private_key(State)),
         {reply, SignedReply, State};

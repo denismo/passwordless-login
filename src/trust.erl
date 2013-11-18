@@ -49,22 +49,22 @@ handle_call({registerTarget, Name, Certificate}, _From, State) ->
   end;
 
 handle_call({registerUser, Name, Email, AuthenticatorRemote, AuthPublicKey}, _From, State) ->
-  io:format("STS: Registering user: ~p~n",[Name]),
+  io:format("Trust: Registering user: ~p~n",[Name]),
   UserID = uuid:to_string(uuid:v4()),
   User = #userRec{authenticator = #authenticatorRec{remote = AuthenticatorRemote, certificate = AuthPublicKey}, id = UserID, name = Name, email = Email},
   NewState = State#stsState{users = dict:store(Name, User, State#stsState.users)},
   {reply, {ok, UserID}, NewState};
 
 handle_call({verify, SignedMsg}, _From, State) ->
-  io:format("STS: Verifying: ~p~n",[SignedMsg]),
+  io:format("Trust: Confirming: ~p~n",[SignedMsg]),
   try
     verify_target_signature(State, SignedMsg#target2sts.targetID, SignedMsg),
     TargetName = get_target_name(State, SignedMsg#target2sts.targetID),
     confirm_user(State, SignedMsg#target2sts.requestID, SignedMsg#target2sts.userName, TargetName, SignedMsg#target2sts.reason),
-    io:format("STS: Verified: ~p~n",[SignedMsg]),
+    io:format("Trust: Confirmed: ~p~n",[SignedMsg]),
     {reply, auth_security:sign([confirmed], State#stsState.certificate), State}
   catch _ ->
-    io:format("STS: Denied: ~p~n",[SignedMsg]),
+    io:format("Trust: Denied: ~p~n",[SignedMsg]),
     {reply, auth_security:sign([denied], State#stsState.certificate), State}
   end;
 
@@ -93,6 +93,7 @@ confirm_user(State, RequestID, Username, TargetName, Reason) ->
   Msg = #sts2authenticator{reason = Reason, requestID = RequestID, stsID = State#stsState.id, targetName = TargetName, userName = Username},
   SignedMsg = auth_security:sign(Msg, State#stsState.certificate),
   Reply = gen_server:call(Authenticator#authenticatorRec.remote, {confirm, SignedMsg}),
+  io:format("Trust: authenticator reply: ~p~n", [Reply]),
   verify_authenticator_signature(State, Reply, Authenticator),
   case {Reply#authenticator2sts.requestID, Reply#authenticator2sts.decision} of
     {RequestID, confirmed} -> ok;

@@ -32,7 +32,7 @@ code_change(_OldVsn, State, _Extra) ->
 handle_call(terminate, _From, State) ->
   {stop, normal, ok, State};
 handle_call({login,Username}, _From, State) ->
-  io:format("User ~p is loging in~n", [Username]),
+  io:format("Target: User ~p is loging in~n", [Username]),
   Msg = #target2sts{reason = "User login",
                     requestID = uuid:to_string(uuid:v4()),
                     targetID = State#targetState.targetID,
@@ -40,6 +40,7 @@ handle_call({login,Username}, _From, State) ->
   SignedMsg = auth_security:sign(Msg, State#targetState.privateCert),
   % TODO Perhaps enable confirmation code ala bank SMS?
   Reply = gen_server:call(trust_server, {verify, SignedMsg}),
+  io:format("Target: Trust server reply: ~p~n", [Reply]),
   auth_security:verify_signature(Reply, State#targetState.stsPublicKey),
   {reply, Reply, State};
 
