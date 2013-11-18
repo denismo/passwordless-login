@@ -50,7 +50,9 @@ The protocol consists of a sequence of messages exchanges by the parties in the 
 
 Running the test
 ----------------
-Execute "app:test_app()" from Erlang shell.
+Execute "app:test_app()" from Erlang shell. The only parameter is either "Y" or "N" (a string) which represent user's reply to the UI prompt:
+
+    app:test_app("Y").
 
 License
 =======
