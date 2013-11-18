@@ -46,6 +46,8 @@ The protocol consists of a sequence of messages exchanges by the parties in the 
    The reply is communicated back to the trust server, and then to the target
 6. The user's agent is granted or denied access to the target
 
+**Note**: No where in this exchange the user is required to enter password, or expose this private information such as email or name.
+
 Running the test
 ----------------
 Execute "app:test_app()" from Erlang shell.
