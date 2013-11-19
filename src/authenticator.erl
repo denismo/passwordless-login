@@ -12,9 +12,10 @@
 
 -include("records.erl").
 
--record(authenticatorRec, {loggedInUser, privateKey, stsPublicKey, dummyInput}).
+-record(authenticatorRec, {loggedInUser, privateKey, stsPublicKey, dummyInput, trustServer}).
 
-init({PrivateKey, StsPublicKey, DummyInput}) -> {ok, #authenticatorRec{privateKey = PrivateKey, stsPublicKey = StsPublicKey, dummyInput = DummyInput}}.
+init({PrivateKey, StsPublicKey, DummyInput, TrustServer}) ->
+  {ok, #authenticatorRec{privateKey = PrivateKey, stsPublicKey = StsPublicKey, dummyInput = DummyInput, trustServer = TrustServer}}.
 
 handle_info(Msg, State) ->
   io:format("Unexpected message: ~p~n",[Msg]),
@@ -33,8 +34,9 @@ code_change(_OldVsn, State, _Extra) ->
 handle_call(terminate, _From, State) ->
   {stop, normal, ok, State};
 
-% TODO Implement validation
-handle_call({loginUser, Username}, _From, State) ->
+handle_call({loginUser, Username, Password}, _From, State)
+  when State#authenticatorRec.loggedInUser == undefined -> % Currently not logged in
+  verify_user_credentials(State, Username, Password),
   NewState = State#authenticatorRec{loggedInUser = Username},
   {reply, ok, NewState};
 
@@ -65,6 +67,12 @@ handle_call({confirm, Msg}, _From, State) ->
 handle_call(Msg, _From, State) ->
   io:format("Unexpected message: ~p~n",[Msg]),
   {reply, false, State}.
+
+verify_user_credentials(State, Username, Password) ->
+  AuthRec = #authenticator2stsLogin{userName = Username, password = Password, authCertificate = {auth, publicKey}},
+  Reply = gen_server:call(State#authenticatorRec.trustServer, {loginUser, AuthRec}), % No signature!!!
+  auth_security:verify_signature(Reply, State#authenticatorRec.stsPublicKey),
+  {ok, _} = Reply.
 
 logged_in_user(State)     -> State#authenticatorRec.loggedInUser.
 get_private_key(State)    -> State#authenticatorRec.privateKey.

@@ -9,7 +9,7 @@
 -module(auth_security).
 
 %% API
--export([extract_claim/2, verify_signature/2, sign/2]).
+-export([extract_claim/2, verify_signature/2, sign/2, verify_password/2]).
 
 extract_claim([Claim|T],Name) ->
   case Claim of
@@ -17,6 +17,9 @@ extract_claim([Claim|T],Name) ->
     _ -> extract_claim(T,Name)
   end;
 extract_claim([],_Name) -> invalid.
+
+verify_password(PasswordGiven, PasswordProvided) ->
+  PasswordGiven = PasswordProvided.
 
 %% Msg can be either a record or a list.
 %% The last element in tuple may or may not contain the signature value (may be empty). If it contains signature it should be ignored

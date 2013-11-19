@@ -12,7 +12,7 @@
 -include("records.erl").
 
 -record(targetRec, {id, name, certificate}).
--record(userRec, {id, name, email, authenticator}).
+-record(userRec, {name, password, email, authenticator}).
 -record(authenticatorRec, {remote, certificate}).
 -record(stsState, {id, certificate, users, targets}).
 
@@ -48,12 +48,20 @@ handle_call({registerTarget, Name, Certificate}, _From, State) ->
     {reply,{false, Exception}, State}
   end;
 
-handle_call({registerUser, Name, Email, AuthenticatorRemote, AuthPublicKey}, _From, State) ->
+handle_call({registerUser, Name, Password, Email}, _From, State) ->
   io:format("Trust: Registering user: ~p~n",[Name]),
-  UserID = uuid:to_string(uuid:v4()),
-  User = #userRec{authenticator = #authenticatorRec{remote = AuthenticatorRemote, certificate = AuthPublicKey}, id = UserID, name = Name, email = Email},
-  NewState = State#stsState{users = dict:store(Name, User, State#stsState.users)},
-  {reply, {ok, UserID}, NewState};
+  User = #userRec{name = Name, email = Email, password = Password}, % TODO No, we are not planning to store clear text passwords - this is a placeholder!
+  NewState = update_user(State, Name, User),
+  {reply, ok, NewState};
+
+handle_call({loginUser, Msg}, From, State) ->
+  io:format("Trust: User ~p login from ~p~n", [Msg#authenticator2stsLogin.userName, From]),
+  User = lookup_user(State, Msg#authenticator2stsLogin.userName),
+  auth_security:verify_password(User#userRec.password, Msg#authenticator2stsLogin.password), % TODO Does this assert the password?
+  {FromPid, _} = From,
+  NewUser = User#userRec{authenticator = #authenticatorRec{remote = FromPid, certificate = Msg#authenticator2stsLogin.authCertificate}},
+  NewState = update_user(State, Msg#authenticator2stsLogin.userName, NewUser),
+  {reply, auth_security:sign({ok, invalid}, State#stsState.certificate), NewState};
 
 handle_call({verify, SignedMsg}, _From, State) ->
   io:format("Trust: Confirming: ~p~n",[SignedMsg]),
@@ -109,6 +117,9 @@ user_authenticator(State, Username) ->
 
 lookup_user(State, Username) ->
   dict:fetch(Username, State#stsState.users).
+
+update_user(State, Username, User) ->
+  State#stsState{users = dict:store(Username, User, State#stsState.users)}.
 
 lookup_target(State, TargetID) ->
   dict:fetch(TargetID, State#stsState.targets).

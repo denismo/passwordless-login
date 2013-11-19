@@ -4,7 +4,7 @@ This repository is a proof of concept for the protocol which enables password-le
 authorization of user access via mobile devices. The proof of concept is implemented using Erlang and demonstrates
 the message exchange and the security features which guard the exchange.
 
-In essence, the protocol enables the participating *targets* (e.g. websites) to authenticate the accessing users
+In essence, the protocol enables the participating *targets* (e.g. websites) to authenticate and authorize the accessing users
 without requiring them to enter their password. For the users, this allows the user to access the remote targets
 without the need to enter password but without a risk of unauthorized access via their logins.
 
@@ -53,6 +53,18 @@ Running the test
 Execute "app:test_app()" from Erlang shell. The only parameter is either "Y" or "N" (a string) which represent user's reply to the UI prompt:
 
     app:test_app("Y").
+
+Discussion
+==========
+The key aspect of the protocol is the usage of trust relationships between involved parties.
+
+Similar to OAuth, there is a trust triangle between the user, the target he accesses, and the federating authority.
+Instead of web redirect from target to federating authority, this protocol introduces another leg which relies on the trust between the federating authority
+and the mobile application. In turn, this also relies on the trust between the user and the mobile application.
+
+While complicating the design, the last two steps allow to avoid web redirects (which require login and session cache somewhere in a browser)
+which is replaced with a "mobile redirect". The callback from the redirect (which in OAuth is usually a call back into the target) is a message
+back to the trust authority, and then back to the target.
 
 License
 =======
