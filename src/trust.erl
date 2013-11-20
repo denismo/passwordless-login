@@ -34,9 +34,13 @@ code_change(_OldVsn, State, _Extra) ->
 handle_call(terminate, _From, State) ->
   {stop, normal, ok, State};
 
+%% Request to register target system on the trust server.
+%% The system should be unique with regards to the combination of {name, certificate).
+%% The request is sent by a target.
 handle_call({registerTarget, Name, Certificate}, _From, State) ->
   try
-    Exists = target_exists(State,Name, Certificate),
+    % TODO Verify target's signature using the specified certificate
+    Exists = target_exists(State,Name,Certificate),
     if Exists == true -> throw(duplicate_target);
        true ->
         TargetID = uuid:to_string(uuid:v4()),
@@ -48,21 +52,32 @@ handle_call({registerTarget, Name, Certificate}, _From, State) ->
     {reply,{false, Exception}, State}
   end;
 
-handle_call({registerUser, Name, Password, Email}, _From, State) ->
-  io:format("Trust: Registering user: ~p~n",[Name]),
-  User = #userRec{name = Name, email = Email, password = Password}, % TODO No, we are not planning to store clear text passwords - this is a placeholder!
-  NewState = update_user(State, Name, User),
+%% Request to register a new user on the trust system.
+%% This is where user creates an account so that he can later be authorized on target websites via this trust server.
+%% The registration is assumed to happen via a web UI (perhaps also via the mobile authenticator app).
+handle_call({registerUser, Username, Password, Email}, _From, State) ->
+  io:format("Trust: Registering user: ~p~n",[Username]),
+  verify_user_does_not_exist(State, Username),
+  User = #userRec{name = Username, email = Email, password = Password}, % TODO No, we are not planning to store clear text passwords - this is a placeholder!
+  NewState = update_user(State, Username, User),
   {reply, ok, NewState};
 
+%% Request to login the user on the authenticator app.
+%% Verifies that the user is registered, the credentials match, and stores the association between
+%% the user and the authenticator that is going to be used for future authorization requests from target.
+%% The request is sent by the authenticator app.
 handle_call({loginUser, Msg}, From, State) ->
   io:format("Trust: User ~p login from ~p~n", [Msg#authenticator2stsLogin.userName, From]),
   User = lookup_user(State, Msg#authenticator2stsLogin.userName),
-  auth_security:verify_password(User#userRec.password, Msg#authenticator2stsLogin.password), % TODO Does this assert the password?
+  verify_user_no_authenticator(User),
+  auth_security:verify_password(User#userRec.password, Msg#authenticator2stsLogin.password),
   {FromPid, _} = From,
   NewUser = User#userRec{authenticator = #authenticatorRec{remote = FromPid, certificate = Msg#authenticator2stsLogin.authCertificate}},
   NewState = update_user(State, Msg#authenticator2stsLogin.userName, NewUser),
   {reply, auth_security:sign({ok, invalid}, State#stsState.certificate), NewState};
 
+%% Message from target - request to verify the user who tries to access the target system
+%% Contact's the user's authenticator for authorization
 handle_call({verify, SignedMsg}, _From, State) ->
   io:format("Trust: Confirming: ~p~n",[SignedMsg]),
   try
@@ -79,6 +94,21 @@ handle_call({verify, SignedMsg}, _From, State) ->
 handle_call(Msg, _From, State) ->
   io:format("Unexpected message: ~p~n",[Msg]),
   {reply, false, State}.
+
+
+
+%% ====================================== Private functions ======================================
+
+verify_user_no_authenticator(User) ->
+  if User#userRec.authenticator /= undefined -> throw (already_logged_in);
+     true -> ok
+  end.
+
+verify_user_does_not_exist(State, Username) ->
+  case dict:find(Username, State#stsState.users) of
+    {ok, _Value} -> throw (exists);
+    _ -> ok
+  end.
 
 new_target(State, TargetRec) ->
   State#stsState{targets = dict:store(TargetRec#targetRec.id, TargetRec, State#stsState.targets)}.
@@ -129,6 +159,3 @@ target_exists(State, TargetName, Certificate) ->
       Acc == true orelse string:to_lower(Value#targetRec.name) == string:to_lower(TargetName) orelse Value#targetRec.certificate == Certificate
   end,
   dict:fold(Matcher, false, State#stsState.targets).
-
-
-

@@ -17,29 +17,22 @@
 init({PrivateKey, StsPublicKey, DummyInput, TrustServer}) ->
   {ok, #authenticatorRec{privateKey = PrivateKey, stsPublicKey = StsPublicKey, dummyInput = DummyInput, trustServer = TrustServer}}.
 
-handle_info(Msg, State) ->
-  io:format("Unexpected message: ~p~n",[Msg]),
-  {noreply, State}.
-
-handle_cast(stop, State) ->
-  {stop, normal, State}.
-
-terminate(normal, _State) ->
-  io:format("Stopping the server~n"),
-  ok.
-
-code_change(_OldVsn, State, _Extra) ->
-  {ok, State}.
-
-handle_call(terminate, _From, State) ->
-  {stop, normal, ok, State};
-
+%% Request to login the user into the trust server (and authenticator).
+%% Would normally be produced by the authenticator's mobile UI.
+%% The authenticator should use the provided Username and Password to authenticate the user with the trust server
+%% (the account with these credentials must already exist). After that it is free to cache the login state for
+%% undefined period, and keep the association of the authenticator and the logged in user.
 handle_call({loginUser, Username, Password}, _From, State)
   when State#authenticatorRec.loggedInUser == undefined -> % Currently not logged in
   verify_user_credentials(State, Username, Password),
   NewState = State#authenticatorRec{loggedInUser = Username},
   {reply, ok, NewState};
 
+%% Request to confirm the intent to access the target site by the user
+%% It should confirm with the user (via some sort of UI) that they indeed would
+%% like to access the target site for the reason specified. If the user did not initiate the access they would deny
+%% this request and thus the target's access will be denied.
+%% Sent by the trust server
 handle_call({confirm, Msg}, _From, State) ->
   io:format("Authenticator: confirming ~p~n", [Msg]),
   try
@@ -48,6 +41,7 @@ handle_call({confirm, Msg}, _From, State) ->
     Username = logged_in_user(State), % Fails if not the same
     Target = Msg#sts2authenticator.targetName,
     Reason = Msg#sts2authenticator.reason,
+    % This is a dummy implementation - we return whatever input was specified during startup (for testing and demonstration purposes).
     io:format("Authenticator: Authorize user ~p access to ~p for ~p?~p~n", [Username, Target, Reason,State#authenticatorRec.dummyInput]),
     Input = State#authenticatorRec.dummyInput,
     if Input == "y" orelse Input == "Y" ->
@@ -64,9 +58,28 @@ handle_call({confirm, Msg}, _From, State) ->
     {reply, SignedReply2, State}
   end;
 
+handle_call(terminate, _From, State) ->
+  {stop, normal, ok, State};
+
 handle_call(Msg, _From, State) ->
   io:format("Unexpected message: ~p~n",[Msg]),
   {reply, false, State}.
+
+handle_info(Msg, State) ->
+  io:format("Unexpected message: ~p~n",[Msg]),
+  {noreply, State}.
+
+handle_cast(stop, State) ->
+  {stop, normal, State}.
+
+terminate(normal, _State) ->
+  io:format("Stopping the server~n"),
+  ok.
+
+code_change(_OldVsn, State, _Extra) ->
+  {ok, State}.
+
+%% ====================================== Private functions ======================================
 
 verify_user_credentials(State, Username, Password) ->
   AuthRec = #authenticator2stsLogin{userName = Username, password = Password, authCertificate = {auth, publicKey}},
