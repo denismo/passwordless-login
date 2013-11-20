@@ -5,8 +5,9 @@ authorization of user access via mobile devices. The proof of concept is impleme
 the message exchange and the security features which guard the exchange.
 
 In essence, the protocol enables the participating *targets* (e.g. websites) to authenticate and authorize the accessing users
-without requiring them to enter their password. For the users, this allows the user to access the remote targets
-without the need to enter password but without a risk of unauthorized access via their logins.
+without requiring them to use any password. For the users, this allows the user to access the remote targets
+just by providing the user ID known to the target - without the risk of unauthorized access via their logins,
+or without the risk of exposing the private information to the target.
 
 Example by analogy
 ------------------
@@ -23,17 +24,19 @@ which is not what most people want (but the websites do seek that as it helps th
 **In contrast**, this solution focuses on authorization in particular - it does not release any information but merely
  confirms your will to access the target.
 
+On the technical side, it is built on the ideas of OAuth and Federated Authentication for Web Services.
+
 Protocol
 ========
 The protocol recognises 4 active parties:
 - the user (usually represented by a user agent such as a browser)
 - the target (what the user is trying to access)
-- the trust server (the server that is mediating the communication and has the trust relationship with either party)
-- the authenticator (the dedicated agent capable of communicating back to the user for confirmations)
+- the trust server (the server that is mediating the communication and has the trust relationship with all other parties)
+- the authenticator (the dedicated agent capable of communicating back to the user for confirmations, usually a mobile app on the user's mobile device)
 
 Protocol sequence
 -----------------
-The protocol consists of a sequence of messages exchanges by the parties in the following order:
+The protocol consists of a sequence of message exchanges by the parties in the following order:
 <pre>User --1-> Target --2-> Trust server --3-> Authenticator
      &lt;-6-- Target &lt;-5-- Trust server &lt;-4--
 </pre>
@@ -47,6 +50,7 @@ The protocol consists of a sequence of messages exchanges by the parties in the 
 6. The user's agent is granted or denied access to the target
 
 **Note**: Nowhere in this exchange the user is required to enter password, or expose his private information such as email or name.
+The user is also free to use separate username per-target or use a shared common username known to multiple targets and the trust server.
 
 Running the test
 ----------------
@@ -65,6 +69,10 @@ and the mobile application. In turn, this also relies on the trust between the u
 While complicating the design, the last two steps allow to avoid web redirects (which require login and session cache somewhere in a browser)
 which is replaced with a "mobile redirect". The callback from the redirect (which in OAuth is usually a call back into the target) is a message
 back to the trust authority, and then back to the target.
+
+Known issues
+============
+Please contact me in case if you identify an issue or an improvement in the protocol.
 
 License
 =======
