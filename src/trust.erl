@@ -37,9 +37,10 @@ handle_call(terminate, _From, State) ->
 %% Request to register target system on the trust server.
 %% The system should be unique with regards to the combination of {name, certificate).
 %% The request is sent by a target.
-handle_call({registerTarget, Name, Certificate}, _From, State) ->
+handle_call({registerTarget, Msg}, _From, State) ->
   try
-    % TODO Verify target's signature using the specified certificate
+    auth_security:verify_signature(Msg, Msg#target2trustRegister.certificate),
+    Name = Msg#target2trustRegister.name, Certificate = Msg#target2trustRegister.certificate,
     Exists = target_exists(State,Name,Certificate),
     if Exists == true -> throw(duplicate_target);
        true ->
@@ -85,10 +86,10 @@ handle_call({verify, SignedMsg}, _From, State) ->
     TargetName = get_target_name(State, SignedMsg#target2sts.targetID),
     confirm_user(State, SignedMsg#target2sts.requestID, SignedMsg#target2sts.userName, TargetName, SignedMsg#target2sts.reason),
     io:format("Trust: Confirmed: ~p~n",[SignedMsg]),
-    {reply, auth_security:sign([confirmed], State#stsState.certificate), State}
+    {reply, auth_security:sign({confirmed, invalid}, State#stsState.certificate), State}
   catch _ ->
     io:format("Trust: Denied: ~p~n",[SignedMsg]),
-    {reply, auth_security:sign([denied], State#stsState.certificate), State}
+    {reply, auth_security:sign({denied, invalid}, State#stsState.certificate), State}
   end;
 
 handle_call(Msg, _From, State) ->

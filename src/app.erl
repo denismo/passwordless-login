@@ -11,6 +11,7 @@
 
 %% API
 -export([start_app/1, test_app/1]).
+-include("records.erl").
 
 start_app(DummyInput) ->
   code:ensure_loaded(auth_security),
@@ -25,7 +26,7 @@ start_app(DummyInput) ->
 
 test_app(DummyInput) ->
   start_app(DummyInput),
-  {ok, TargetID} = gen_server:call(trust_server, {registerTarget, "Mail", {target, publicKey}}),
+  {ok, TargetID} = gen_server:call(trust_server, {registerTarget, auth_security:sign(#target2trustRegister{name="Mail",  certificate = {target, publicKey}}, {target, privateKey})}),
   gen_server:call(target_server, {newTargetID, TargetID}),
   gen_server:call(trust_server, {registerUser, "Denis", "blah", "denismo@yahoo.com"}),
   gen_server:call(authenticator_server, {loginUser, "Denis", "blah"}),

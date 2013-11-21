@@ -30,8 +30,10 @@ handle_call({login,Username}, _From, State) ->
   Reply = gen_server:call(trust_server, {verify, SignedMsg}),
   io:format("Target: Trust server reply: ~p~n", [Reply]),
   auth_security:verify_signature(Reply, State#targetState.stsPublicKey),
-  % TODO Don't leak the trust server's reply - extract the response
-  {reply, Reply, State};
+  case Reply of
+    {confirmed, _} = Reply -> {reply, ok, State};
+    _ -> {reply, false, State}
+  end;
 
 %% Request to store the targetID - happens only once during target's registration process.
 handle_call({newTargetID, TargetID}, _From, State) ->
