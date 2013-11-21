@@ -12,10 +12,10 @@
 
 -include("records.erl").
 
--record(authenticatorRec, {loggedInUser, privateKey, stsPublicKey, dummyInput, trustServer}).
+-record(authenticatorRec, {loggedInUser, privateKey, trustPublicKey, dummyInput, trustServer}).
 
-init({PrivateKey, StsPublicKey, DummyInput, TrustServer}) ->
-  {ok, #authenticatorRec{privateKey = PrivateKey, stsPublicKey = StsPublicKey, dummyInput = DummyInput, trustServer = TrustServer}}.
+init({PrivateKey, TrustPublicKey, DummyInput, TrustServer}) ->
+  {ok, #authenticatorRec{privateKey = PrivateKey, trustPublicKey = TrustPublicKey, dummyInput = DummyInput, trustServer = TrustServer}}.
 
 %% Request to login the user into the trust server (and authenticator).
 %% Would normally be produced by the authenticator's mobile UI.
@@ -36,24 +36,24 @@ handle_call({loginUser, Username, Password}, _From, State)
 handle_call({confirm, Msg}, _From, State) ->
   io:format("Authenticator: confirming ~p~n", [Msg]),
   try
-    auth_security:verify_signature(Msg, get_sts_public_key(State)),
-    Username = Msg#sts2authenticator.userName,
+    auth_security:verify_signature(Msg, get_trust_public_key(State)),
+    Username = Msg#trust2authenticator.userName,
     Username = logged_in_user(State), % Fails if not the same
-    Target = Msg#sts2authenticator.targetName,
-    Reason = Msg#sts2authenticator.reason,
+    Target = Msg#trust2authenticator.targetName,
+    Reason = Msg#trust2authenticator.reason,
     % This is a dummy implementation - we return whatever input was specified during startup (for testing and demonstration purposes).
     io:format("Authenticator: Authorize user ~p access to ~p for ~p?~p~n", [Username, Target, Reason,State#authenticatorRec.dummyInput]),
     Input = State#authenticatorRec.dummyInput,
     if Input == "y" orelse Input == "Y" ->
         io:format("Authenticator: Confirmed access ~p~n", [Msg]),
-        Reply = #authenticator2sts{decision = confirmed, requestID = Msg#sts2authenticator.requestID},
+        Reply = #authenticator2trust{decision = confirmed, requestID = Msg#trust2authenticator.requestID},
         SignedReply = auth_security:sign(Reply, get_private_key(State)),
         {reply, SignedReply, State};
       true -> throw(denied)
     end
   catch _ ->
     io:format("Authenticator: Denied access ~p~n", [Msg]),
-    Reply2 = #authenticator2sts{decision = denied, requestID = Msg#sts2authenticator.requestID},
+    Reply2 = #authenticator2trust{decision = denied, requestID = Msg#trust2authenticator.requestID},
     SignedReply2 = auth_security:sign(Reply2, get_private_key(State)),
     {reply, SignedReply2, State}
   end;
@@ -82,11 +82,11 @@ code_change(_OldVsn, State, _Extra) ->
 %% ====================================== Private functions ======================================
 
 verify_user_credentials(State, Username, Password) ->
-  AuthRec = #authenticator2stsLogin{userName = Username, password = Password, authCertificate = {auth, publicKey}},
+  AuthRec = #authenticator2trustLogin{userName = Username, password = Password, authCertificate = {auth, publicKey}},
   Reply = gen_server:call(State#authenticatorRec.trustServer, {loginUser, AuthRec}), % No signature!!!
-  auth_security:verify_signature(Reply, State#authenticatorRec.stsPublicKey),
+  auth_security:verify_signature(Reply, State#authenticatorRec.trustPublicKey),
   {ok, _} = Reply.
 
 logged_in_user(State)     -> State#authenticatorRec.loggedInUser.
 get_private_key(State)    -> State#authenticatorRec.privateKey.
-get_sts_public_key(State) -> State#authenticatorRec.stsPublicKey.
+get_trust_public_key(State) -> State#authenticatorRec.trustPublicKey.

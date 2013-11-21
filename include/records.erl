@@ -8,8 +8,8 @@
 %%%-------------------------------------------------------------------
 
 %% API
--record(target2sts,{targetID,userName, reason, requestID, targetsSignature}).
--record(sts2authenticator, {targetName, requestID, userName, reason, stsID, stsSignature}).
--record(authenticator2sts, {requestID, decision, authenticatorSignature}).
--record(authenticator2stsLogin, {userName, password, authCertificate}).
+-record(target2trust,{targetID,userName, reason, requestID, targetsSignature}).
+-record(trust2authenticator, {targetName, requestID, userName, reason, trustID, trustSignature}).
+-record(authenticator2trust, {requestID, decision, authenticatorSignature}).
+-record(authenticator2trustLogin, {userName, password, authCertificate}).
 -record(target2trustRegister, {name, certificate, targetSignature}).

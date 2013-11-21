@@ -14,9 +14,9 @@
 -record(targetRec, {id, name, certificate}).
 -record(userRec, {name, password, email, authenticator}).
 -record(authenticatorRec, {remote, certificate}).
--record(stsState, {id, certificate, users, targets}).
+-record(trustState, {id, certificate, users, targets}).
 
-init({StsID, Certificate}) -> {ok,#stsState{id = StsID, certificate = Certificate, users = dict:new(), targets = dict:new()}}.
+init({TrustID, Certificate}) -> {ok,#trustState{id = TrustID, certificate = Certificate, users = dict:new(), targets = dict:new()}}.
 
 handle_info(Msg, State) ->
   io:format("Unexpected message: ~p~n",[Msg]),
@@ -68,28 +68,28 @@ handle_call({registerUser, Username, Password, Email}, _From, State) ->
 %% the user and the authenticator that is going to be used for future authorization requests from target.
 %% The request is sent by the authenticator app.
 handle_call({loginUser, Msg}, From, State) ->
-  io:format("Trust: User ~p login from ~p~n", [Msg#authenticator2stsLogin.userName, From]),
-  User = lookup_user(State, Msg#authenticator2stsLogin.userName),
+  io:format("Trust: User ~p login from ~p~n", [Msg#authenticator2trustLogin.userName, From]),
+  User = lookup_user(State, Msg#authenticator2trustLogin.userName),
   verify_user_no_authenticator(User),
-  auth_security:verify_password(User#userRec.password, Msg#authenticator2stsLogin.password),
+  auth_security:verify_password(User#userRec.password, Msg#authenticator2trustLogin.password),
   {FromPid, _} = From,
-  NewUser = User#userRec{authenticator = #authenticatorRec{remote = FromPid, certificate = Msg#authenticator2stsLogin.authCertificate}},
-  NewState = update_user(State, Msg#authenticator2stsLogin.userName, NewUser),
-  {reply, auth_security:sign({ok, invalid}, State#stsState.certificate), NewState};
+  NewUser = User#userRec{authenticator = #authenticatorRec{remote = FromPid, certificate = Msg#authenticator2trustLogin.authCertificate}},
+  NewState = update_user(State, Msg#authenticator2trustLogin.userName, NewUser),
+  {reply, auth_security:sign({ok, invalid}, State#trustState.certificate), NewState};
 
 %% Message from target - request to verify the user who tries to access the target system
 %% Contact's the user's authenticator for authorization
 handle_call({verify, SignedMsg}, _From, State) ->
   io:format("Trust: Confirming: ~p~n",[SignedMsg]),
   try
-    verify_target_signature(State, SignedMsg#target2sts.targetID, SignedMsg),
-    TargetName = get_target_name(State, SignedMsg#target2sts.targetID),
-    confirm_user(State, SignedMsg#target2sts.requestID, SignedMsg#target2sts.userName, TargetName, SignedMsg#target2sts.reason),
+    verify_target_signature(State, SignedMsg#target2trust.targetID, SignedMsg),
+    TargetName = get_target_name(State, SignedMsg#target2trust.targetID),
+    confirm_user(State, SignedMsg#target2trust.requestID, SignedMsg#target2trust.userName, TargetName, SignedMsg#target2trust.reason),
     io:format("Trust: Confirmed: ~p~n",[SignedMsg]),
-    {reply, auth_security:sign({confirmed, invalid}, State#stsState.certificate), State}
+    {reply, auth_security:sign({confirmed, invalid}, State#trustState.certificate), State}
   catch _ ->
     io:format("Trust: Denied: ~p~n",[SignedMsg]),
-    {reply, auth_security:sign({denied, invalid}, State#stsState.certificate), State}
+    {reply, auth_security:sign({denied, invalid}, State#trustState.certificate), State}
   end;
 
 handle_call(Msg, _From, State) ->
@@ -106,13 +106,13 @@ verify_user_no_authenticator(User) ->
   end.
 
 verify_user_does_not_exist(State, Username) ->
-  case dict:find(Username, State#stsState.users) of
+  case dict:find(Username, State#trustState.users) of
     {ok, _Value} -> throw (exists);
     _ -> ok
   end.
 
 new_target(State, TargetRec) ->
-  State#stsState{targets = dict:store(TargetRec#targetRec.id, TargetRec, State#stsState.targets)}.
+  State#trustState{targets = dict:store(TargetRec#targetRec.id, TargetRec, State#trustState.targets)}.
 
 verify_target_signature(State, TargetID, SignedMsg) ->
   TargetCertificate = lookup_target_certificate(State, TargetID),
@@ -129,12 +129,12 @@ get_target_name(State, TargetID) ->
 
 confirm_user(State, RequestID, Username, TargetName, Reason) ->
   Authenticator = user_authenticator(State, Username),
-  Msg = #sts2authenticator{reason = Reason, requestID = RequestID, stsID = State#stsState.id, targetName = TargetName, userName = Username},
-  SignedMsg = auth_security:sign(Msg, State#stsState.certificate),
+  Msg = #trust2authenticator{reason = Reason, requestID = RequestID, trustID = State#trustState.id, targetName = TargetName, userName = Username},
+  SignedMsg = auth_security:sign(Msg, State#trustState.certificate),
   Reply = gen_server:call(Authenticator#authenticatorRec.remote, {confirm, SignedMsg}),
   io:format("Trust: authenticator reply: ~p~n", [Reply]),
   verify_authenticator_signature(State, Reply, Authenticator),
-  case {Reply#authenticator2sts.requestID, Reply#authenticator2sts.decision} of
+  case {Reply#authenticator2trust.requestID, Reply#authenticator2trust.decision} of
     {RequestID, confirmed} -> ok;
     {RequestID, denied} -> throw(denied)
   end.
@@ -147,16 +147,16 @@ user_authenticator(State, Username) ->
   User#userRec.authenticator.
 
 lookup_user(State, Username) ->
-  dict:fetch(Username, State#stsState.users).
+  dict:fetch(Username, State#trustState.users).
 
 update_user(State, Username, User) ->
-  State#stsState{users = dict:store(Username, User, State#stsState.users)}.
+  State#trustState{users = dict:store(Username, User, State#trustState.users)}.
 
 lookup_target(State, TargetID) ->
-  dict:fetch(TargetID, State#stsState.targets).
+  dict:fetch(TargetID, State#trustState.targets).
 
 target_exists(State, TargetName, Certificate) ->
   Matcher = fun (_Key, Value, Acc) ->
       Acc == true orelse string:to_lower(Value#targetRec.name) == string:to_lower(TargetName) orelse Value#targetRec.certificate == Certificate
   end,
-  dict:fold(Matcher, false, State#stsState.targets).
+  dict:fold(Matcher, false, State#trustState.targets).
