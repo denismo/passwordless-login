@@ -19,7 +19,7 @@ verify_password(PasswordGiven, PasswordProvided) ->
 %% The last element of a list is signature
 %% Throws exception if signature is invalid
 verify_signature(Msg, Certificate) when is_tuple(Msg) ->
-  verify_signature(utils:signedRecord2list(Msg), Certificate);
+  verify_signature(tuple_to_list(Msg), Certificate);
 verify_signature(Msg, Certificate) when is_list(Msg) ->
   Signature = lists:last(Msg),
   Body = lists:sublist(Msg, length(Msg)-1),
