@@ -1,3 +1,11 @@
+%%%-------------------------------------------------------------------
+%%% @author Denis Mikhalkin
+%%% @copyright (C) 2013, Denis Mikhalkin
+%%% @doc
+%%%
+%%% @end
+%%% Created : 13. Nov 2013 11:50 PM
+%%%-------------------------------------------------------------------
 -module(user_server).
 -behavior(gen_server).
 -export([init/1, handle_info/2, handle_call/3, terminate/2, handle_cast/2,code_change/3]).

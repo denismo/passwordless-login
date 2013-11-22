@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
-%%% @author abc
-%%% @copyright (C) 2013, <COMPANY>
+%%% @author Denis Mikhalkin
+%%% @copyright (C) 2013, Denis Mikhalkin
 %%% @doc
 %%%
 %%% @end
@@ -9,14 +9,7 @@
 -module(auth_security).
 
 %% API
--export([extract_claim/2, verify_signature/2, sign/2, verify_password/2]).
-
-extract_claim([Claim|T],Name) ->
-  case Claim of
-    {claim,Name,Target} -> Target;
-    _ -> extract_claim(T,Name)
-  end;
-extract_claim([],_Name) -> invalid.
+-export([verify_signature/2, sign/2, verify_password/2]).
 
 verify_password(PasswordGiven, PasswordProvided) ->
   PasswordGiven = PasswordProvided.

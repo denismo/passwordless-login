@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
-%%% @author abc
-%%% @copyright (C) 2013, <COMPANY>
+%%% @author Denis Mikhalkin
+%%% @copyright (C) 2013, Denis Mikhalkin
 %%% @doc
 %%%
 %%% @end
