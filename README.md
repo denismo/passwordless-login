@@ -77,5 +77,3 @@ Please contact me in case if you identify an issue or an improvement in the prot
 License
 =======
 GPL v3
-
-<img src="http://github-analytics.s3-website-us-east-1.amazonaws.com/dot.png">
