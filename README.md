@@ -78,4 +78,3 @@ License
 =======
 GPL v3
 
-[![t](http://github-analytics.s3-website-us-east-1.amazonaws.com/dot.png)](http://github-analytics.s3-website-us-east-1.amazonaws.com/dot.png)
