@@ -54,7 +54,8 @@ The user is also free to use separate username per-target or use a shared common
 
 Running the test
 ----------------
-Execute "app:test_app()" from Erlang shell. The only parameter is either "Y" or "N" (a string) which represent user's reply to the UI prompt:
+Execute "app:test_app()" from Erlang shell. You'll need Erland OTP to run the app (it uses gen_server).
+The only parameter is either "Y" or "N" (a string) which represents the user's reply to the UI prompt:
 
     app:test_app("Y").
 
